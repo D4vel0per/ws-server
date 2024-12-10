@@ -1,7 +1,7 @@
 import { Client, LocalAuth } from "whatsapp-web.js";
 import * as path from "path"
 import * as fs from "fs"
-import { Delivery } from "./server";
+import { BindedDelivery, Delivery } from "./server";
 
 const afs = fs.promises
 
@@ -22,7 +22,7 @@ async function getClient (clientId: string) {
     })
 }
 
-async function createClient (clientId: string, phoneNumber: string, delivery: Delivery) {
+async function createClient (clientId: string) {
     let dir = path.join("clients", clientId)
     let ifExists = await getClient(clientId)
     if (ifExists) return ifExists
@@ -64,7 +64,7 @@ type SenderPkg = string|simpleMessage|formInfo
 
 type expoSender = (client:Client, cargo: SenderCargo, pkg: SenderPkg) => any
 
-async function initClient (client: Client, delivery: Delivery, phoneNumber?:string) {
+async function initClient (client: Client, delivery: BindedDelivery, phoneNumber?:string) {
     client.addListener("loading_screen", () => {
         delivery.show("Preparing the spaceship...");
         console.log("Loading...")
