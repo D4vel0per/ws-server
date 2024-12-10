@@ -69,7 +69,7 @@ function getClient(clientId) {
         });
     });
 }
-function createClient(clientId, phoneNumber, delivery) {
+function createClient(clientId) {
     return __awaiter(this, void 0, void 0, function* () {
         let dir = path.join("clients", clientId);
         let ifExists = yield getClient(clientId);

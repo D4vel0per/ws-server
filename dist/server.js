@@ -16,6 +16,7 @@ exports.Sender = void 0;
 const express_1 = __importDefault(require("express"));
 const ws_1 = require("ws");
 const wsp_bot_1 = require("./wsp-bot");
+const crypto_1 = require("crypto");
 const app = (0, express_1.default)();
 const port = 8000;
 const server = app.listen(port, () => {
@@ -23,7 +24,7 @@ const server = app.listen(port, () => {
 });
 const WS_server = new ws_1.Server({ server });
 WS_server.on("connection", (socket) => {
-    console.log("Someone new connected to the server");
+    console.log("Someone new connected to the server:", socket.url);
     socket.on("message", (msj) => __awaiter(void 0, void 0, void 0, function* () {
         console.log("WebSocket Message received: Adapting...");
         let processed = yield adapt(msj, socket);
@@ -31,35 +32,51 @@ WS_server.on("connection", (socket) => {
         socket.send(JSON.stringify(processed));
     }));
 });
+var BasicStatus;
+(function (BasicStatus) {
+    BasicStatus["SUCCESS"] = "SUCCESS";
+    BasicStatus["FAILED"] = "FAILED";
+})(BasicStatus || (BasicStatus = {}));
 class Sender {
     static init(socket, clientId, phoneNumber) {
         return __awaiter(this, void 0, void 0, function* () {
-            Sender.socket = socket;
+            Sender.sockets[clientId] = socket;
             let client;
+            if (Sender.clients[clientId])
+                yield Sender.clients[clientId].destroy();
             if (phoneNumber) {
                 console.log("Creating client...");
-                client = yield (0, wsp_bot_1.createClient)(clientId, phoneNumber, Sender.delivery);
+                client = yield (0, wsp_bot_1.createClient)(clientId);
             }
             else {
                 client = yield (0, wsp_bot_1.getClient)(clientId);
-                if (Sender.client)
-                    yield Sender.client.destroy();
             }
             if (client) {
                 console.log("Initialazing client...");
-                client = yield (0, wsp_bot_1.initClient)(client, Sender.delivery, phoneNumber);
+                client = yield (0, wsp_bot_1.initClient)(client, Sender.createDelivery(clientId), phoneNumber);
                 console.log("Client ", clientId, "initialized");
-                Sender.client = client;
+                Sender.clients[clientId] = client;
+                return BasicStatus.SUCCESS;
             }
             else {
                 console.log("Error initialazing ", clientId, " client");
+                return BasicStatus.FAILED;
             }
         });
     }
-    static deliver(cargo, pkg) {
+    static createDelivery(clientId) {
+        let delivery = {
+            show: Sender.delivery.show.bind(null, clientId),
+            sendCode: Sender.delivery.sendCode.bind(null, clientId),
+            onMessage: Sender.delivery.onMessage.bind(null, clientId),
+            ready: Sender.delivery.ready.bind(null, clientId)
+        };
+        return delivery;
+    }
+    static deliver(cargo, pkg, clientId) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a, _b;
-            if (!Sender.client) {
+            var _a;
+            if (!Sender.clients[clientId]) {
                 console.log("Error: Client is null");
                 return;
             }
@@ -68,8 +85,8 @@ class Sender {
             let response = {
                 type: cargo,
                 data: "",
-                from: (_a = Sender.client.info) === null || _a === void 0 ? void 0 : _a.wid.user,
-                status: "SUCCESS"
+                from: (_a = Sender.clients[clientId].info) === null || _a === void 0 ? void 0 : _a.wid.user,
+                status: BasicStatus.SUCCESS
             };
             switch (cargo) {
                 case PAIRING_CODE:
@@ -85,54 +102,62 @@ class Sender {
                     response.data = JSON.stringify(pkg);
                     try {
                         console.log("Received: " + pkg.body);
-                        yield Sender.client.sendMessage(pkg.from, "Received: " + pkg.body);
+                        yield Sender.clients[clientId].sendMessage(pkg.from, "Received: " + pkg.body);
                     }
                     catch (err) {
                         console.log("ERROR:", err);
-                        response.status = "FAILED";
+                        response.status = BasicStatus.FAILED;
                     }
                 }
             }
-            (_b = Sender.socket) === null || _b === void 0 ? void 0 : _b.send(JSON.stringify(response));
+            Sender.sockets[clientId].send(JSON.stringify(response));
         });
     }
 }
 exports.Sender = Sender;
-Sender.socket = null;
-Sender.client = null;
+Sender.sockets = {};
+Sender.clients = {};
 Sender.delivery = {
-    show(pkg) {
-        console.log("Showing", pkg);
-        Sender.deliver(wsp_bot_1.SenderCargo.STATE, pkg);
+    show(clientId, pkg) {
+        console.log(`${clientId} -> Showing Status: `, pkg);
+        Sender.deliver(wsp_bot_1.SenderCargo.STATE, pkg, clientId);
     },
-    sendCode(pkg) {
-        console.log("Sending code", pkg);
-        Sender.deliver(wsp_bot_1.SenderCargo.PAIRING_CODE, pkg);
+    sendCode(clientId, pkg) {
+        console.log(`${clientId} -> Sending Code: `, pkg);
+        Sender.deliver(wsp_bot_1.SenderCargo.PAIRING_CODE, pkg, clientId);
     },
-    onMessage(pkg) {
-        console.log("New message");
-        Sender.deliver(wsp_bot_1.SenderCargo.MESSAGE, pkg);
+    onMessage(clientId, pkg) {
+        console.log(`${clientId} -> Message Received: `, pkg.body);
+        Sender.deliver(wsp_bot_1.SenderCargo.MESSAGE, pkg, clientId);
     },
-    ready() {
-        console.log("Everything up and running... Ready to receive messages.");
+    ready(clientId) {
+        console.log(`${clientId} -> Everything up and running... Ready to receive messages.`);
+        Sender.deliver(wsp_bot_1.SenderCargo.STATE, "Everything up and running... Ready to receive messages.", clientId);
     }
 };
 function adapt(msj, socket) {
     return __awaiter(this, void 0, void 0, function* () {
-        var _a, _b;
+        var _a;
         console.log("Reading client data");
         let clientData = JSON.parse(msj.toString());
         let isForm = clientData.cargo === wsp_bot_1.SenderCargo.FORM;
         let pkg = clientData.package;
-        //let client:Client|null = null;
+        let client = null;
+        let status = BasicStatus.FAILED;
         if (isForm) {
             console.log("Package will be used as Form Data:", pkg);
-            //client = await sender.init(socket, pkg.clientId, pkg.phoneNumber);
-            yield Sender.init(socket, pkg.clientId, pkg.phoneNumber);
+            const checkedId = ((clientId) => {
+                let result = clientId || (0, crypto_1.randomUUID)().split("-")[0];
+                if (!clientId.endsWith("_client"))
+                    result = clientId + "_client";
+                return result;
+            })(pkg.clientId);
+            status = yield Sender.init(socket, checkedId, pkg.phoneNumber);
+            client = Sender.clients[checkedId];
         }
         return {
-            status: Sender.client ? "SUCCESS" : "FAILED",
-            user: (_b = (_a = Sender.client) === null || _a === void 0 ? void 0 : _a.info) === null || _b === void 0 ? void 0 : _b.wid.user
+            status,
+            user: (_a = client === null || client === void 0 ? void 0 : client.info) === null || _a === void 0 ? void 0 : _a.wid.user
         };
     });
 }
