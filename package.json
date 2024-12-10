@@ -1,0 +1,23 @@
+{
+  "name": "ws-server",
+  "version": "1.0.0",
+  "description": "WhatsApp Server for my ws-demo app",
+  "main": "dist/server.js",
+  "scripts": {
+    "start": "tsc & node dist/server.js"
+  },
+  "author": "D4vel0per",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.1",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "express": "^4.21.1",
+    "whatsapp-web.js": "^1.26.0",
+    "ws": "^8.18.0",
+    "ws-server": "file:"
+  }
+}
