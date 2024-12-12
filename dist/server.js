@@ -111,7 +111,6 @@ function processMessage(pkg) {
             try {
                 yield client.sendMessage(pkg.to, pkg.body);
                 status = types_1.BasicStatus.SUCCESS;
-                console.log("Sended Message!!!");
             }
             catch (err) {
                 console.log("Error in processMessage(): ", err);

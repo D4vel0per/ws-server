@@ -73,7 +73,7 @@ function createDelivery (clientId: ClientId) {
 }
 
 async function deliver (cargo: SenderCargo, pkg: SenderPkg, clientId: ClientId) {
-    if (!Storage.clients[clientId]) {
+    if (!Storage.clients[clientId] && cargo === SenderCargo.MESSAGE) {
         console.log("Error: Client is null");
         return;
     }
@@ -82,7 +82,7 @@ async function deliver (cargo: SenderCargo, pkg: SenderPkg, clientId: ClientId) 
     let response: SenderResponse = {
         type: cargo,
         data: "",
-        from: Storage.clients[clientId].info?.wid.user,
+        from: Storage.clients[clientId]?.info?.wid.user || clientId,
         status: BasicStatus.SUCCESS
     }
 
