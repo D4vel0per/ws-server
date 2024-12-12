@@ -42,19 +42,17 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SenderCargo = void 0;
 exports.getClient = getClient;
 exports.createClient = createClient;
 exports.initClient = initClient;
 const whatsapp_web_js_1 = require("whatsapp-web.js");
 const path = __importStar(require("path"));
-const fs = __importStar(require("fs"));
-const afs = fs.promises;
+const fs = __importStar(require("fs/promises"));
 function getClient(clientId) {
     return __awaiter(this, void 0, void 0, function* () {
         let dir = path.join("clients", clientId);
         try {
-            yield afs.access(dir, fs.constants.F_OK);
+            yield fs.access(dir, fs.constants.F_OK);
             console.log("Client", clientId, "at", dir);
         }
         catch (_a) {
@@ -76,7 +74,7 @@ function createClient(clientId) {
         if (ifExists)
             return ifExists;
         try {
-            yield afs.mkdir(dir, { recursive: true });
+            yield fs.mkdir(dir, { recursive: true });
         }
         catch (err) {
             console.log("ERROR CREATING CLIENT: ", err);
@@ -90,13 +88,6 @@ function createClient(clientId) {
         return client;
     });
 }
-var SenderCargo;
-(function (SenderCargo) {
-    SenderCargo["STATE"] = "State";
-    SenderCargo["PAIRING_CODE"] = "PCode";
-    SenderCargo["MESSAGE"] = "Message";
-    SenderCargo["FORM"] = "Form";
-})(SenderCargo || (exports.SenderCargo = SenderCargo = {}));
 function initClient(client, delivery, phoneNumber) {
     return __awaiter(this, void 0, void 0, function* () {
         client.addListener("loading_screen", () => {
@@ -113,13 +104,16 @@ function initClient(client, delivery, phoneNumber) {
         });
         client.addListener("ready", delivery.ready);
         client.addListener("message", (msj) => delivery.onMessage(msj));
-        client.initialize()
-            .then(() => __awaiter(this, void 0, void 0, function* () {
+        try {
+            yield client.initialize();
             if (phoneNumber) {
                 let pairingCode = yield client.requestPairingCode(phoneNumber, true);
                 delivery.sendCode(pairingCode);
             }
-        })).catch(err => console.log("Error at initClient:", err));
+        }
+        catch (err) {
+            console.log("Error at initClient:", err);
+        }
         return client;
     });
 }
