@@ -53,9 +53,10 @@ const Sender = __importStar(require("./sender"));
 const sender_1 = require("./sender");
 const utils_1 = require("./utils");
 const app = (0, express_1.default)();
-const port = 8000;
+const port = 7162;
+const ipAddress = '45.90.12.29';
 const server = app.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
+    console.log(`Server is running on http://${ipAddress}:${port}`);
 });
 const WS_server = new ws_1.Server({ server });
 WS_server.on("connection", (socket) => {
@@ -111,7 +112,6 @@ function processMessage(pkg) {
             try {
                 yield client.sendMessage(pkg.to, pkg.body);
                 status = types_1.BasicStatus.SUCCESS;
-                console.log("Sended Message!!!");
             }
             catch (err) {
                 console.log("Error in processMessage(): ", err);

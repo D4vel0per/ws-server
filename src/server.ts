@@ -17,10 +17,11 @@ import { Storage } from './sender';
 import { toChatId, toPhoneNumber } from './utils';
 
 const app = express();
-const port = 8000;
+const port = 7162;
+const ipAddress = '45.90.12.29';
 
 const server = app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
+  console.log(`Server is running on http://${ipAddress}:${port}`);
 });
 
 const WS_server = new Server({ server })
